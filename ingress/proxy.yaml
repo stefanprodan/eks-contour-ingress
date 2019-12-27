@@ -1,0 +1,16 @@
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: podinfo
+  namespace: demo
+  annotations:
+    fluxcd.io/ignore: "true"
+spec:
+  virtualhost:
+    fqdn: podinfo.example.com
+    tls:
+      secretName: cert
+  routes:
+  - services:
+    - name: podinfo
+      port: 9898

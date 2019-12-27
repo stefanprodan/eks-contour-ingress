@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: cert
+  namespace: demo
+  annotations:
+    fluxcd.io/ignore: "true"
+spec:
+  secretName: cert
+  commonName: "*.example.com"
+  dnsNames:
+  - "*.example.com"
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
