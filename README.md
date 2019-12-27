@@ -1,10 +1,59 @@
-# gitops-ingress
+# eks-envoy-ingress
 
-Securing Kubernetes ingress with Let's Encrypt the GitOps way
+This guide shows you how to set up a [GitOps](https://www.weave.works/blog/kubernetes-anti-patterns-let-s-do-gitops-not-ciops)
+pipeline to securely expose Kubernetes services over HTTPS using:
+* Amazon EKS and Route 53
+* [cert-manager](https://cert-manager.io) to provision TLS certificates from [Let's Encrypt](https://letsencrypt.org)
+* [Contour](https://projectcontour.io) as the [Envoy](https://www.envoyproxy.io/) based ingress controller
+* [Flux](https://fluxcd.io) as the GitOps operator
+* [podinfo](https://github.com/stefanprodan/podinfo) as the demo web application
+
+![](docs/diagrams/eks-contour-cert-manager.png)
+
+### Prerequisites
+
+You'll need an AWS account, a GitHub account, git and kubectl installed locally.
+
+This guide was developed on AWS using EKS and Route53. You can create an EKS cluster with the IAM roles needed by cert-manager to 
+solve DNS01 ACME challenges using [eksctl](https://eksctl.io):
+
+```sh
+cat << EOF | eksctl create cluster -f -
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: my-cluster
+  region: eu-west-1
+managedNodeGroups:
+  - name: default
+    instanceType: m5.large
+    desiredCapacity: 2
+    volumeSize: 120
+    iam:
+      withAddonPolicies:
+        certManager: true
+fargateProfiles:
+  - name: default
+    selectors:
+      - namespace: demo
+EOF
+```
+
+You’ll use the EC2 managed node group to host the Envoy DaemonSet and the Kubernetes operators (Flux, Contour, cert-manager).
+For the demo, you’ll be using the application podinfo running on Fargate.
+Note that only the pods deployed in the demo namespace will be running on Fargate, as defined in the Fargate profile, above.
 
 ### Install Flux
 
-You'll need a Kubernetes cluster v1.11 or newer with load balancer support, a GitHub account, git and kubectl installed locally.
+[Flux](https://fluxcd.io) is a GitOps operator for Kubernetes that keeps your cluster state is sync with a Git repository.
+Because Flux is pull based and also runs inside Kubernetes, you don't have to expose the cluster
+credentials outside your production environment.
+
+You can define the desired state of your cluster with Kubernetes YAML manifests and customise them with Kustomize.
+Flux implements a control loop that continuously applies the desired state to your cluster,
+offering protection against harmful actions like deployments deletion or policies altering.
+
+![](docs/diagrams/flux-gitops-kustomize.png)
 
 Install [fluxctl](https://github.com/fluxcd/flux/releases):
 
@@ -22,14 +71,20 @@ curl -sL https://fluxcd.io/install | sh
 On GitHub, fork this repository and clone it locally (replace `stefanprodan` with your GitHub username): 
 
 ```sh
-git clone https://github.com/stefanprodan/gitops-ingress
-cd gitops-ingress
+git clone https://github.com/stefanprodan/eks-envoy-ingress
+cd eks-envoy-ingress
+```
+
+Create the fluxcd namespace:
+
+```sh
+kubectl create ns fluxcd
 ```
 
 Install Flux by specifying your fork URL (replace `stefanprodan` with your GitHub username): 
 
 ```bash
-GHUSER="stefanprodan" \
+export GHUSER="stefanprodan" && \
 fluxctl install \
 --git-user=${GHUSER} \
 --git-email=${GHUSER}@users.noreply.github.com \
@@ -52,10 +107,149 @@ create a **deploy key** with **write access** on your GitHub repository.
 Open GitHub, navigate to your repository, go to _Settings > Deploy keys_ click on _Add deploy key_, check 
 _Allow write access_, paste the Flux public key and click _Add key_.
 
-After a couple of seconds Flux will deploy Contour and cert-manager in your cluster.
+After a couple of seconds Flux will deploy Contour, cert-manager and podinfo in your cluster.
 
 Check the sync status with:
 
 ```
 watch kubectl get pods --all-namespaces
+```
+
+### Configure DNS
+
+Retrieve the external address of Contour's Envoy load balancer:
+
+```
+kubectl get -n projectcontour service envoy -o wide
+
+NAME    TYPE           CLUSTER-IP      EXTERNAL-IP
+envoy   LoadBalancer   10.100.228.53   af4726981288e11eaade7062a36c250a-1448602599.eu-west-1.elb.amazonaws.com
+```
+
+Using the external address create a CNAME record in Route53 e.g. `*.example.com` that maps to the LB address.
+
+Verify your DNS setup using the `host` command:
+
+```
+host podinfo.example.com
+
+podinfo.example.com is an alias for af4726981288e11eaade7062a36c250a-1448602599.eu-west-1.elb.amazonaws.com.
+```
+
+### Configure Let's Encrypt wildcard certificate
+
+Create a cluster issues using Let's Encrypt DNS01 solver (replace `stefanprodan` with your GitHub username):
+
+```sh
+export GHUSER="stefanprodan" && \
+cat << EOF | tee ingress/issuer.yaml
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  namespace: cert-manager
+  annotations:
+    fluxcd.io/ignore: "false"
+spec:
+  acme:
+    email: ${GHUSER}@users.noreply.github.com
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    server: https://acme-v02.api.letsencrypt.org/directory
+    solvers:
+    - dns01:
+        route53:
+          region: eu-west-1
+EOF
+```
+
+Create a certificate in the demo namespace (replace `example.com` with your domain):
+
+```sh
+export DOMAIN="example.com" && \
+cat << EOF | tee ingress/cert.yaml
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: cert
+  namespace: demo
+  annotations:
+    fluxcd.io/ignore: "false"
+spec:
+  secretName: cert
+  commonName: "*.${DOMAIN}"
+  dnsNames:
+  - "*.${DOMAIN}"
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+EOF
+```
+
+Apply changes via git:
+
+```sh
+git add -A && \
+git commit -m "add wildcard cert" && \
+git push origin master && \
+fluxctl sync --k8s-fwd-ns fluxcd
+```
+
+Wait for the certificate to be issued:
+
+```sh
+watch kubectl -n demo describe certificate
+
+Events:
+  Type    Reason        Age    From          Message
+  ----    ------        ----   ----          -------
+  Normal  GeneratedKey  2m17s  cert-manager  Generated a new private key
+  Normal  Requested     2m17s  cert-manager  Created new CertificateRequest resource "cert-1178588226"
+  Normal  Issued        20s    cert-manager  Certificate issued successfully
+```
+
+When the certificate has been issued, cert-manager will create a secret with the TLS cert:
+
+```sh
+kubectl -n demo get secrets
+
+NAME                  TYPE                                  DATA   AGE
+cert                  kubernetes.io/tls                     3      5m40s
+```
+
+### Expose services over TLS
+
+In order to expose the demo app podinfo outside the cluster you'll be using Contour's HTTPProxy custom resource definition. 
+
+Create a HTTPProxy by referencing the TLS cert secret (replace `example.com` with your domain)::
+
+```sh
+export DOMAIN="example.com" && \
+cat << EOF | tee ingress/proxy.yaml
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: podinfo
+  namespace: demo
+  annotations:
+    fluxcd.io/ignore: "false"
+spec:
+  virtualhost:
+    fqdn: podinfo.${DOMAIN}
+    tls:
+      secretName: cert
+  routes:
+  - services:
+    - name: podinfo
+      port: 9898
+EOF
+```
+
+When TLS is enabled for a virtual host, Contour will redirect the traffic to the secure interface:
+
+```sh
+curl -vL podinfo.example.com
+
+< HTTP/1.1 301 Moved Permanently
+< location: https://podinfo.example.com/
 ```
