@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: demo
+spec:
+  template:
+    spec:
+      nodeSelector:
+        role: apps

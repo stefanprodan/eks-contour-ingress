@@ -4,3 +4,5 @@ resources:
   - namespace.yaml
   - deployment.yaml
   - service.yaml
+patchesStrategicMerge:
+  - node-selector-patch.yaml

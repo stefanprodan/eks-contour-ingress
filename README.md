@@ -10,12 +10,22 @@ pipeline to securely expose Kubernetes services over HTTPS using:
 
 ![](docs/diagrams/eks-contour-cert-manager.png)
 
-### Prerequisites
+### Create an EKS cluster
 
 You'll need an AWS account, a GitHub account, git and kubectl installed locally.
 
-This guide was developed on AWS using EKS and Route53. You can create an EKS cluster with the IAM roles needed by cert-manager to 
-solve DNS01 ACME challenges using [eksctl](https://eksctl.io):
+Install [eksctl](https://eksctl.io):
+
+```sh
+# macOS
+brew tap weaveworks/tap
+brew install weaveworks/tap/eksctl
+
+# windows
+choco install eksctl
+```
+
+Create an EKS cluster with EC2 managed nodes:
 
 ```sh
 cat << EOF | eksctl create cluster -f -
@@ -25,23 +35,46 @@ metadata:
   name: my-cluster
   region: eu-west-1
 managedNodeGroups:
-  - name: default
+  - name: controllers
+    labels: { role: ingress }
     instanceType: m5.large
     desiredCapacity: 2
     volumeSize: 120
     iam:
       withAddonPolicies:
         certManager: true
-fargateProfiles:
-  - name: default
-    selectors:
-      - namespace: demo
+        albIngress: true
+  - name: workers
+    labels: { role: apps }
+    instanceType: m5.large
+    desiredCapacity: 2
+    volumeSize: 120
 EOF
 ```
 
-You’ll use the EC2 managed node group to host the Envoy DaemonSet and the Kubernetes operators (Flux, Contour, cert-manager).
-For the demo, you’ll be using the application podinfo running on Fargate.
-Note that only the pods deployed in the demo namespace will be running on Fargate, as defined in the Fargate profile, above.
+The above command creates an EKS cluster with two managed node groups:
+* The controllers node group has the IAM roles needed by cert-manager to solve DNS01 ACME challenges and will be used to run 
+the Envoy proxy DaemonSet along with Contour and cert-manager controller.
+* The workers node group is for the apps that will be exposed outside the cluster by Envoy.
+
+A Kustomize patch is used to pin the workloads on node groups, for example:
+
+```
+cat cert-manager/node-selector-patch.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cert-manager
+  namespace: cert-manager
+spec:
+  template:
+    spec:
+      nodeSelector:
+        role: ingress
+```
+
+We use Kustomize patches so you don't have to modify the original manifests.
 
 ### Install Flux
 
@@ -243,6 +276,15 @@ spec:
     - name: podinfo
       port: 9898
 EOF
+```
+
+Apply changes via git:
+
+```sh
+git add -A && \
+git commit -m "add podinfo ingress" && \
+git push origin master && \
+fluxctl sync --k8s-fwd-ns fluxcd
 ```
 
 When TLS is enabled for a virtual host, Contour will redirect the traffic to the secure interface:
