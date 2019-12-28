@@ -74,7 +74,8 @@ spec:
         role: controllers
 ```
 
-We use Kustomize patches so you don't have to modify the original manifests.
+We use Kustomize patches so we don't have to modify the original manifests. You can update the manifests by running
+`./scripts/update-manifests.sh`, this script downloads the latest cert-manager and Contour YAML and overrides the manifests in the repo.
 
 ### Install Flux
 
@@ -180,7 +181,6 @@ apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
-  namespace: cert-manager
   annotations:
     fluxcd.io/ignore: "false"
 spec:
@@ -196,7 +196,7 @@ spec:
 EOF
 ```
 
-Create a certificate in the demo namespace (replace `example.com` with your domain):
+Create a certificate in the `projectcontour` namespace (replace `example.com` with your domain):
 
 ```sh
 export DOMAIN="example.com" && \
@@ -205,7 +205,7 @@ apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
   name: cert
-  namespace: demo
+  namespace: projectcontour
   annotations:
     fluxcd.io/ignore: "false"
 spec:
@@ -231,7 +231,7 @@ fluxctl sync --k8s-fwd-ns fluxcd
 Wait for the certificate to be issued:
 
 ```sh
-watch kubectl -n demo describe certificate
+watch kubectl -n projectcontour describe certificate
 
 Events:
   Type    Reason        Age    From          Message
@@ -244,17 +244,19 @@ Events:
 When the certificate has been issued, cert-manager will create a secret with the TLS cert:
 
 ```sh
-kubectl -n demo get secrets
+kubectl -n projectcontour get secrets
 
 NAME                  TYPE                                  DATA   AGE
 cert                  kubernetes.io/tls                     3      5m40s
 ```
 
+We store the certificate in the Contour namespace so that we can reuse it for multiple apps deployed in different namespaces.
+
 ### Expose services over TLS
 
 In order to expose the demo app podinfo outside the cluster you'll be using Contour's HTTPProxy custom resource definition. 
 
-Create a HTTPProxy by referencing the TLS cert secret (replace `example.com` with your domain)::
+Create a HTTPProxy by referencing the TLS cert secret (replace `example.com` with your domain):
 
 ```sh
 export DOMAIN="example.com" && \
@@ -263,20 +265,38 @@ apiVersion: projectcontour.io/v1
 kind: HTTPProxy
 metadata:
   name: podinfo
-  namespace: demo
+  namespace: projectcontour
   annotations:
-    fluxcd.io/ignore: "false"
+    fluxcd.io/ignore: "true"
 spec:
   virtualhost:
     fqdn: podinfo.${DOMAIN}
     tls:
       secretName: cert
-  routes:
-  - services:
+  includes:
     - name: podinfo
-      port: 9898
+      namespace: demo
 EOF
 ```
+
+HTTPProxies can include other HTTPProxy objects, the above configuration includes the podinfo HTTPProxy from the demo namespace:
+
+```sh
+cat podinfo/proxy.yaml
+
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: podinfo
+  namespace: demo
+spec:
+  routes:
+    - services:
+        - name: podinfo
+          port: 9898
+```
+
+We use the cross namespace inclusion to be able to load the shared TLS wildcard certificate.
 
 Apply changes via git:
 

@@ -2,7 +2,6 @@ apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
-  namespace: cert-manager
   annotations:
     fluxcd.io/ignore: "true"
 spec:

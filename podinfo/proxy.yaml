@@ -1,0 +1,10 @@
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: podinfo
+  namespace: demo
+spec:
+  routes:
+    - services:
+        - name: podinfo
+          port: 9898

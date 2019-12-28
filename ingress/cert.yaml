@@ -2,7 +2,7 @@ apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
   name: cert
-  namespace: demo
+  namespace: projectcontour
   annotations:
     fluxcd.io/ignore: "true"
 spec:
