@@ -36,7 +36,7 @@ metadata:
   region: eu-west-1
 managedNodeGroups:
   - name: controllers
-    labels: { role: ingress }
+    labels: { role: controllers }
     instanceType: m5.large
     desiredCapacity: 2
     volumeSize: 120
@@ -45,7 +45,7 @@ managedNodeGroups:
         certManager: true
         albIngress: true
   - name: workers
-    labels: { role: apps }
+    labels: { role: workers }
     instanceType: m5.large
     desiredCapacity: 2
     volumeSize: 120
@@ -53,9 +53,9 @@ EOF
 ```
 
 The above command creates an EKS cluster with two managed node groups:
-* The controllers node group has the IAM roles needed by cert-manager to solve DNS01 ACME challenges and will be used to run 
-the Envoy proxy DaemonSet along with Contour and cert-manager controller.
-* The workers node group is for the apps that will be exposed outside the cluster by Envoy.
+* The **controllers** node group has the IAM roles needed by cert-manager to solve DNS01 ACME challenges and will be used to run 
+the Envoy proxy DaemonSet along with Contour and cert-manager.
+* The **workers** node group is for the apps that will be exposed outside the cluster by Envoy.
 
 A Kustomize patch is used to pin the workloads on node groups, for example:
 
@@ -71,7 +71,7 @@ spec:
   template:
     spec:
       nodeSelector:
-        role: ingress
+        role: controllers
 ```
 
 We use Kustomize patches so you don't have to modify the original manifests.

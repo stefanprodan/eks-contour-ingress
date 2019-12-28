@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       nodeSelector:
-        role: ingress
+        role: controllers
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -18,7 +18,7 @@ spec:
   template:
     spec:
       nodeSelector:
-        role: ingress
+        role: controllers
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -29,4 +29,4 @@ spec:
   template:
     spec:
       nodeSelector:
-        role: ingress
+        role: controllers
