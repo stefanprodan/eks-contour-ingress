@@ -21,9 +21,11 @@ Install [eksctl](https://eksctl.io):
 brew tap weaveworks/tap
 brew install weaveworks/tap/eksctl
 
-# windows
+# Windows
 choco install eksctl
 ```
+
+For Linux you can download the eksctl binary from [GitHub releases](https://github.com/weaveworks/eksctl/releases).
 
 Create an EKS cluster with EC2 managed nodes:
 
@@ -228,7 +230,7 @@ git push origin master && \
 fluxctl sync --k8s-fwd-ns fluxcd
 ```
 
-Wait for the certificate to be issued:
+Wait for the certificate to be issued (it take up to two minutes):
 
 ```sh
 watch kubectl -n projectcontour describe certificate
@@ -267,7 +269,7 @@ metadata:
   name: podinfo
   namespace: projectcontour
   annotations:
-    fluxcd.io/ignore: "true"
+    fluxcd.io/ignore: "false"
 spec:
   virtualhost:
     fqdn: podinfo.${DOMAIN}
@@ -302,7 +304,7 @@ Apply changes via git:
 
 ```sh
 git add -A && \
-git commit -m "add podinfo ingress" && \
+git commit -m "expose podinfo" && \
 git push origin master && \
 fluxctl sync --k8s-fwd-ns fluxcd
 ```
