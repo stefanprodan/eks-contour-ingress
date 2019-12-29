@@ -61,7 +61,7 @@ The above command creates an EKS cluster with two node groups:
 the Envoy proxy DaemonSet along with Contour and cert-manager.
 * The **workers** managed node group is for the apps that will be exposed outside the cluster by Envoy.
 
-A Kustomize patch is used to pin the workloads on node groups with node selectors and tolerations, for example:
+A Kustomize patch is used to pin the workloads on node groups with selectors and tolerations, for example:
 
 ```yaml
 # contour/node-selector-patch.yaml
@@ -177,9 +177,15 @@ host podinfo.example.com
 podinfo.example.com is an alias for af4726981288e11eaade7062a36c250a-1448602599.eu-west-1.elb.amazonaws.com.
 ```
 
-### Configure Let's Encrypt wildcard certificate
+### Obtain Let's Encrypt wildcard certificate
 
-Create a cluster issues using Let's Encrypt DNS01 solver (replace `stefanprodan` with your GitHub username):
+In order to obtain certificates from Let's Encrypt you need to prove ownership by 
+creating a TXT record with specific content that proves you have control of the domain DNS records.
+The DNS challenge and cert renewal can be fully automated with cert-manager and Route53.
+
+![](docs/diagrams/cert-manager-route53.png)
+
+Create a cluster issues with Let's Encrypt DNS01 solver (replace `stefanprodan` with your GitHub username):
 
 ```sh
 export GHUSER="stefanprodan" && \
@@ -235,7 +241,10 @@ git push origin master && \
 fluxctl sync --k8s-fwd-ns fluxcd
 ```
 
-Wait for the certificate to be issued (it take up to two minutes):
+Note that Flux does a git-cluster reconciliation every five minutes,
+the `fluxctl sync` command can be used to speed up the synchronization.
+
+Wait for the certificate to be issued (it takes up to two minutes):
 
 ```sh
 watch kubectl -n projectcontour describe certificate
