@@ -8,6 +8,9 @@ spec:
     spec:
       nodeSelector:
         role: controllers
+      tolerations:
+        - key: controllers
+          operator: Exists
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -19,3 +22,20 @@ spec:
     spec:
       nodeSelector:
         role: controllers
+      tolerations:
+        - key: controllers
+          operator: Exists
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: contour-certgen
+  namespace: projectcontour
+spec:
+  template:
+    spec:
+      nodeSelector:
+        role: controllers
+      tolerations:
+        - key: controllers
+          operator: Exists

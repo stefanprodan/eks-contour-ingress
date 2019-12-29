@@ -27,7 +27,7 @@ choco install eksctl
 
 For Linux you can download the eksctl binary from [GitHub releases](https://github.com/weaveworks/eksctl/releases).
 
-Create an EKS cluster with EC2 managed nodes:
+Create an EKS cluster with four EC2 nodes:
 
 ```sh
 cat << EOF | eksctl create cluster -f -
@@ -36,16 +36,18 @@ kind: ClusterConfig
 metadata:
   name: my-cluster
   region: eu-west-1
-managedNodeGroups:
+nodeGroups:
   - name: controllers
     labels: { role: controllers }
     instanceType: m5.large
     desiredCapacity: 2
-    volumeSize: 120
     iam:
       withAddonPolicies:
         certManager: true
         albIngress: true
+    taints:
+      controllers: "true:NoSchedule"
+managedNodeGroups:
   - name: workers
     labels: { role: workers }
     instanceType: m5.large
@@ -54,29 +56,31 @@ managedNodeGroups:
 EOF
 ```
 
-The above command creates an EKS cluster with two managed node groups:
+The above command creates an EKS cluster with two node groups:
 * The **controllers** node group has the IAM roles needed by cert-manager to solve DNS01 ACME challenges and will be used to run 
 the Envoy proxy DaemonSet along with Contour and cert-manager.
-* The **workers** node group is for the apps that will be exposed outside the cluster by Envoy.
+* The **workers** managed node group is for the apps that will be exposed outside the cluster by Envoy.
 
-A Kustomize patch is used to pin the workloads on node groups, for example:
+A Kustomize patch is used to pin the workloads on node groups with node selectors and tolerations, for example:
 
-```
-cat cert-manager/node-selector-patch.yaml
-
+```yaml
+# contour/node-selector-patch.yaml
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: cert-manager
-  namespace: cert-manager
+  name: envoy
+  namespace: projectcontour
 spec:
   template:
     spec:
       nodeSelector:
         role: controllers
+      tolerations:
+        - key: controllers
+          operator: Exists
 ```
 
-We use Kustomize patches so we don't have to modify the original manifests. You can update the manifests by running
+We use Kustomize patches to avoid modifying the original manifests. You can update the manifests by running
 `./scripts/update-manifests.sh`, this script downloads the latest cert-manager and Contour YAML and overrides the manifests in the repo.
 
 ### Install Flux
@@ -125,6 +129,7 @@ fluxctl install \
 --git-user=${GHUSER} \
 --git-email=${GHUSER}@users.noreply.github.com \
 --git-url=git@github.com:${GHUSER}/gitops-ingress \
+--git-branch=master \
 --manifest-generation=true \
 --namespace=fluxcd | kubectl apply -f -
 ```
