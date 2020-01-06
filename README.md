@@ -1,4 +1,4 @@
-# eks-envoy-ingress
+# eks-contour-ingress
 
 This guide shows you how to set up a [GitOps](https://www.weave.works/blog/kubernetes-anti-patterns-let-s-do-gitops-not-ciops)
 pipeline to securely expose Kubernetes services over HTTPS using:
@@ -111,8 +111,8 @@ curl -sL https://fluxcd.io/install | sh
 On GitHub, fork this repository and clone it locally (replace `stefanprodan` with your GitHub username): 
 
 ```sh
-git clone https://github.com/stefanprodan/eks-envoy-ingress
-cd eks-envoy-ingress
+git clone https://github.com/stefanprodan/eks-contour-ingress
+cd eks-contour-ingress
 ```
 
 Create the fluxcd namespace:
@@ -331,3 +331,15 @@ curl -vL podinfo.example.com
 < HTTP/1.1 301 Moved Permanently
 < location: https://podinfo.example.com/
 ```
+
+### Progressive Delivery
+
+Progressive delivery is an umbrella term for advanced deployment patterns like canaries, feature flags and A/B testing.
+Progressive delivery techniques are used to reduce the risk of introducing a new software version in production by
+giving app developers and SRE teams a fine-grained control over the blast radius.
+
+![](https://raw.githubusercontent.com/weaveworks/flagger/master/docs/diagrams/flagger-contour-overview.png)
+
+You can use [Flagger](https://github.com/weaveworks/flagger) together with Contour's HTTPProxy to
+automate canary releases and A/B testing for your web apps.
+If you want to give Flagger a try, here is a [progressive delivery tutorial](https://docs.flagger.app/usage/contour-progressive-delivery).
