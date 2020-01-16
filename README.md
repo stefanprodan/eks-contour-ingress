@@ -128,7 +128,7 @@ export GHUSER="stefanprodan" && \
 fluxctl install \
 --git-user=${GHUSER} \
 --git-email=${GHUSER}@users.noreply.github.com \
---git-url=git@github.com:${GHUSER}/gitops-ingress \
+--git-url=git@github.com:${GHUSER}/eks-contour-ingress \
 --git-branch=master \
 --manifest-generation=true \
 --namespace=fluxcd | kubectl apply -f -
@@ -342,4 +342,7 @@ giving app developers and SRE teams a fine-grained control over the blast radius
 
 You can use [Flagger](https://github.com/weaveworks/flagger) together with Contour's HTTPProxy to
 automate canary releases and A/B testing for your web apps.
-If you want to give Flagger a try, here is a [progressive delivery tutorial](https://docs.flagger.app/usage/contour-progressive-delivery).
+When using Flagger you would replace the podinfo service and proxy definitions with a canary definition. Flagger generates the
+Kubernetes ClusterIP services and Contour HTTPProxy on its own based on the canary spec.
+
+If you want to give Flagger a try, here is the Contour [progressive delivery tutorial](https://docs.flagger.app/usage/contour-progressive-delivery).

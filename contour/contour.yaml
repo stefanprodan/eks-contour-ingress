@@ -399,9 +399,6 @@ spec:
               type: string
             description:
               type: string
-          required:
-          - currentStatus
-          - description
           type: object
       required:
       - metadata
@@ -431,7 +428,7 @@ spec:
     listKind: TLSCertificateDelegationList
     plural: tlscertificatedelegations
     singular: tlscertificatedelegation
-  scope: ""
+  scope: Namespaced
   validation:
     openAPIV3Schema:
       description: TLSCertificateDelegation is an TLS Certificate Delegation CRD specificiation.
@@ -697,11 +694,106 @@ spec:
                       strategy:
                         type: string
                     type: object
+                  pathRewritePolicy:
+                    description: The policy for rewriting the path of the request
+                      URL after the request has been routed to a Service.
+                    properties:
+                      replacePrefix:
+                        description: ReplacePrefix describes how the path prefix should
+                          be replaced.
+                        items:
+                          description: ReplacePrefix describes a path prefix replacement.
+                          properties:
+                            prefix:
+                              description: "Prefix specifies the URL path prefix to
+                                be replaced. \n If Prefix is specified, it must exactly
+                                match the Condition prefix that is rendered by the
+                                chain of including HTTPProxies and only that path
+                                prefix will be replaced by Replacement. This allows
+                                HTTPProxies that are included through multiple roots
+                                to only replace specific path prefixes, leaving others
+                                unmodified. \n If Prefix is not specified, all routing
+                                prefixes rendered by the include chain will be replaced."
+                              minLength: 1
+                              type: string
+                            replacement:
+                              description: Replacement is the string that the routing
+                                path prefix will be replaced with. This must not be
+                                empty.
+                              minLength: 1
+                              type: string
+                          required:
+                          - replacement
+                          type: object
+                        type: array
+                    type: object
                   permitInsecure:
                     description: Allow this path to respond to insecure requests over
                       HTTP which are normally not permitted when a `virtualhost.tls`
                       block is present.
                     type: boolean
+                  requestHeadersPolicy:
+                    description: The policy for managing request headers during proxying
+                    properties:
+                      remove:
+                        description: Remove specifies a list of HTTP header names
+                          to remove
+                        items:
+                          type: string
+                        type: array
+                      set:
+                        description: Set specifies a list of HTTP header values that
+                          will be set in the HTTP header
+                        items:
+                          description: HeaderValue represents a header name/value
+                            pair
+                          properties:
+                            name:
+                              description: Name represents a key of a header
+                              minLength: 1
+                              type: string
+                            value:
+                              description: Value represents the value of a header
+                                specified by a key
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                    type: object
+                  responseHeadersPolicy:
+                    description: The policy for managing response headers during proxying
+                    properties:
+                      remove:
+                        description: Remove specifies a list of HTTP header names
+                          to remove
+                        items:
+                          type: string
+                        type: array
+                      set:
+                        description: Set specifies a list of HTTP header values that
+                          will be set in the HTTP header
+                        items:
+                          description: HeaderValue represents a header name/value
+                            pair
+                          properties:
+                            name:
+                              description: Name represents a key of a header
+                              minLength: 1
+                              type: string
+                            value:
+                              description: Value represents the value of a header
+                                specified by a key
+                              minLength: 1
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                    type: object
                   retryPolicy:
                     description: The retry policy for this route.
                     properties:
@@ -734,6 +826,76 @@ spec:
                           description: Port (defined as Integer) to proxy traffic
                             to since a service can have multiple defined.
                           type: integer
+                        protocol:
+                          description: Protocol may be used to specify (or override)
+                            the protocol used to reach this Service. Values may be
+                            tls, h2, h2c.  It ommitted protocol-selection falls back
+                            on Service annotations.
+                          type: string
+                        requestHeadersPolicy:
+                          description: The policy for managing request headers during
+                            proxying
+                          properties:
+                            remove:
+                              description: Remove specifies a list of HTTP header
+                                names to remove
+                              items:
+                                type: string
+                              type: array
+                            set:
+                              description: Set specifies a list of HTTP header values
+                                that will be set in the HTTP header
+                              items:
+                                description: HeaderValue represents a header name/value
+                                  pair
+                                properties:
+                                  name:
+                                    description: Name represents a key of a header
+                                    minLength: 1
+                                    type: string
+                                  value:
+                                    description: Value represents the value of a header
+                                      specified by a key
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                - value
+                                type: object
+                              type: array
+                          type: object
+                        responseHeadersPolicy:
+                          description: The policy for managing response headers during
+                            proxying
+                          properties:
+                            remove:
+                              description: Remove specifies a list of HTTP header
+                                names to remove
+                              items:
+                                type: string
+                              type: array
+                            set:
+                              description: Set specifies a list of HTTP header values
+                                that will be set in the HTTP header
+                              items:
+                                description: HeaderValue represents a header name/value
+                                  pair
+                                properties:
+                                  name:
+                                    description: Name represents a key of a header
+                                    minLength: 1
+                                    type: string
+                                  value:
+                                    description: Value represents the value of a header
+                                      specified by a key
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                - value
+                                type: object
+                              type: array
+                          type: object
                         validation:
                           description: UpstreamValidation defines how to verify the
                             backend service's certificate
@@ -764,17 +926,16 @@ spec:
                     description: The timeout policy for this route.
                     properties:
                       idle:
-                        description: Timeout after which if there are no active requests,
-                          the connection between Envoy and the backend will be closed.
+                        description: Timeout after which if there are no active requests
+                          for this route, the connection between Envoy and the backend
+                          will be closed. If not specified, there is no per-route
+                          idle timeout.
                         type: string
                       response:
                         description: Timeout for receiving a response from the server
                           after processing a request from client. If not supplied
                           the timeout duration is undefined.
                         type: string
-                    required:
-                    - idle
-                    - response
                     type: object
                 type: object
               type: array
@@ -819,6 +980,76 @@ spec:
                         description: Port (defined as Integer) to proxy traffic to
                           since a service can have multiple defined.
                         type: integer
+                      protocol:
+                        description: Protocol may be used to specify (or override)
+                          the protocol used to reach this Service. Values may be tls,
+                          h2, h2c.  It ommitted protocol-selection falls back on Service
+                          annotations.
+                        type: string
+                      requestHeadersPolicy:
+                        description: The policy for managing request headers during
+                          proxying
+                        properties:
+                          remove:
+                            description: Remove specifies a list of HTTP header names
+                              to remove
+                            items:
+                              type: string
+                            type: array
+                          set:
+                            description: Set specifies a list of HTTP header values
+                              that will be set in the HTTP header
+                            items:
+                              description: HeaderValue represents a header name/value
+                                pair
+                              properties:
+                                name:
+                                  description: Name represents a key of a header
+                                  minLength: 1
+                                  type: string
+                                value:
+                                  description: Value represents the value of a header
+                                    specified by a key
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            type: array
+                        type: object
+                      responseHeadersPolicy:
+                        description: The policy for managing response headers during
+                          proxying
+                        properties:
+                          remove:
+                            description: Remove specifies a list of HTTP header names
+                              to remove
+                            items:
+                              type: string
+                            type: array
+                          set:
+                            description: Set specifies a list of HTTP header values
+                              that will be set in the HTTP header
+                            items:
+                              description: HeaderValue represents a header name/value
+                                pair
+                              properties:
+                                name:
+                                  description: Name represents a key of a header
+                                  minLength: 1
+                                  type: string
+                                value:
+                                  description: Value represents the value of a header
+                                    specified by a key
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            type: array
+                        type: object
                       validation:
                         description: UpstreamValidation defines how to verify the
                           backend service's certificate
@@ -883,9 +1114,6 @@ spec:
               type: string
             description:
               type: string
-          required:
-          - currentStatus
-          - description
           type: object
       required:
       - metadata
@@ -1024,6 +1252,7 @@ metadata:
   name: contour-certgen
   namespace: projectcontour
 spec:
+  ttlSecondsAfterFinished: 0
   template:
     metadata:
       labels:
@@ -1031,15 +1260,24 @@ spec:
     spec:
       containers:
       - name: contour
-        image: docker.io/projectcontour/contour:v1.0.1
+        image: docker.io/projectcontour/contour:latest
         imagePullPolicy: IfNotPresent
         command:
         - contour
         - certgen
         - --incluster
         - --kube
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       restartPolicy: Never
       serviceAccountName: contour-certgen
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
   parallelism: 1
   completions: 1
   backoffLimit: 1
@@ -1251,7 +1489,7 @@ spec:
         - --contour-key-file=/certs/tls.key
         - --config-path=/config/contour.yaml
         command: ["contour"]
-        image: docker.io/projectcontour/contour:v1.0.1
+        image: docker.io/projectcontour/contour:v1.1.0
         imagePullPolicy: IfNotPresent
         name: contour
         ports:
@@ -1288,6 +1526,10 @@ spec:
               fieldPath: metadata.name
       dnsPolicy: ClusterFirst
       serviceAccountName: contour
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
       volumes:
         - name: contourcert
           secret:
@@ -1394,7 +1636,7 @@ spec:
         - --envoy-key-file=/certs/tls.key
         command:
         - contour
-        image: docker.io/projectcontour/contour:v1.0.1
+        image: docker.io/projectcontour/contour:v1.1.0
         imagePullPolicy: IfNotPresent
         name: envoy-initconfig
         volumeMounts:
