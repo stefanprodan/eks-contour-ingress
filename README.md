@@ -1,5 +1,7 @@
 # eks-contour-ingress
 
+[![test](https://github.com/stefanprodan/eks-contour-ingress/workflows/test/badge.svg)](https://github.com/stefanprodan/eks-contour-ingress/actions)
+
 In Kubernetes terminology, Ingress exposes HTTP(S) routes from outside the cluster to services running within the cluster. 
 An Ingress can be configured to provide Kubernetes services with externally-reachable URLs while performing load balancing and SSL/TLS termination.
 
