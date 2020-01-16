@@ -1,5 +1,18 @@
 # eks-contour-ingress
 
+In Kubernetes terminology, Ingress exposes HTTP(S) routes from outside the cluster to services running within the cluster. 
+An Ingress can be configured to provide Kubernetes services with externally-reachable URLs while performing load balancing and SSL/TLS termination.
+
+Kubernetes comes with an Ingress resource and there are several controllers that implement the ingress specification like the ELB ingress controller or NGINX.
+The Kubernetes Ingress specification is very limited thus most controllers had to rely on annotations to extend the routing features beyond the basics of what Ingress allows.
+But even with annotations there are some limitations hard to overcome, like cross-namespaces routing or weighted load balancing.
+
+[Contour](https://projectcontour.io) is a modern ingress controller based on Envoy that expands upon the functionality of the Ingress API with a new specification named HTTPProxy.
+The HTTPProxy API allows for a richer user experience and addresses the limitations of the Ingress use in multi-tenant environments.
+
+The HTTPProxy specification is flexible enough to facilitate advanced L7 routing policies based on HTTP header or cookie filters as well as weighted load balancing between Kubernetes services.
+These features make Contour suitable for automating Canary releases and A/B testing with [Flagger](https://flagger.app).
+
 This guide shows you how to set up a [GitOps](https://www.weave.works/blog/kubernetes-anti-patterns-let-s-do-gitops-not-ciops)
 pipeline to securely expose Kubernetes services over HTTPS using:
 * Amazon EKS and Route 53
