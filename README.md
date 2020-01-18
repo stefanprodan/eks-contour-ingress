@@ -2,14 +2,14 @@
 
 [![test](https://github.com/stefanprodan/eks-contour-ingress/workflows/test/badge.svg)](https://github.com/stefanprodan/eks-contour-ingress/actions)
 
-In Kubernetes terminology, Ingress exposes HTTP(S) routes from outside the cluster to services running within the cluster. 
+In Kubernetes terminology, [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) exposes HTTP(S) routes from outside the cluster to services running within the cluster. 
 An Ingress can be configured to provide Kubernetes services with externally-reachable URLs while performing load balancing and SSL/TLS termination.
 
 Kubernetes comes with an Ingress resource and there are several controllers that implement the ingress specification like the ELB ingress controller or NGINX.
 The Kubernetes Ingress specification is very limited thus most controllers had to rely on annotations to extend the routing features beyond the basics of what Ingress allows.
 But even with annotations there are some limitations hard to overcome, like cross-namespaces routing or weighted load balancing.
 
-[Contour](https://projectcontour.io) is a modern ingress controller based on Envoy that expands upon the functionality of the Ingress API with a new specification named HTTPProxy.
+[Contour](https://projectcontour.io) (soon to be a [CNCF project](https://github.com/cncf/toc/pull/330)) is a modern ingress controller based on [Envoy](https://www.envoyproxy.io/) that expands upon the functionality of the Ingress API with a new specification named HTTPProxy.
 The HTTPProxy API allows for a richer user experience and addresses the limitations of the Ingress use in multi-tenant environments.
 
 The HTTPProxy specification is flexible enough to facilitate advanced L7 routing policies based on HTTP header or cookie filters as well as weighted load balancing between Kubernetes services.
@@ -19,7 +19,7 @@ This guide shows you how to set up a [GitOps](https://www.weave.works/blog/kuber
 pipeline to securely expose Kubernetes services over HTTPS using:
 * Amazon EKS and Route 53
 * [cert-manager](https://cert-manager.io) to provision TLS certificates from [Let's Encrypt](https://letsencrypt.org)
-* [Contour](https://projectcontour.io) as the [Envoy](https://www.envoyproxy.io/) based ingress controller
+* Contour as the ingress controller
 * [Flux](https://fluxcd.io) as the GitOps operator
 * [podinfo](https://github.com/stefanprodan/podinfo) as the demo web application
 
@@ -123,7 +123,7 @@ choco install fluxctl
 curl -sL https://fluxcd.io/install | sh
 ```
 
-On GitHub, fork this repository and clone it locally (replace `stefanprodan` with your GitHub username): 
+On GitHub, [fork](https://help.github.com/en/github/getting-started-with-github/fork-a-repo) this repository and clone it locally (replace `stefanprodan` with your GitHub username): 
 
 ```sh
 git clone https://github.com/stefanprodan/eks-contour-ingress
@@ -359,5 +359,9 @@ You can use [Flagger](https://github.com/weaveworks/flagger) together with Conto
 automate canary releases and A/B testing for your web apps.
 When using Flagger you would replace the podinfo service and proxy definitions with a canary definition. Flagger generates the
 Kubernetes ClusterIP services and Contour HTTPProxy on its own based on the canary spec.
+
+When you deploy a new version of an app, Flagger gradually shifts traffic to the canary, and at the same time,
+measures the requests success rate as well as the average response duration, these metrics are provided by Envoy and collected by Prometheus.
+You can extend the canary analysis with custom Prometheus metrics, acceptance and load testing to harden the validation process of your app release process.
 
 If you want to give Flagger a try, here is the Contour [progressive delivery tutorial](https://docs.flagger.app/usage/contour-progressive-delivery).
